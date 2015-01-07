@@ -1,5 +1,6 @@
 // Include the precompiled headers
 #include "pch.h"
+#include "Game.h"
 
 // Use some common namespaces to simplify the code
 using namespace Windows::ApplicationModel;
@@ -18,6 +19,7 @@ ref class App sealed : public IFrameworkView
 {
 private:
 	bool WindowClosed;
+	CGame Game;
 public:
 	// some functions called by Windows
 	virtual void Initialize(CoreApplicationView^ AppView)
@@ -41,13 +43,15 @@ public:
 
 	virtual void Run()
 	{
-		//obtain a pointer to the window
+		Game.Initialize();
+
 		CoreWindow ^window = CoreWindow::GetForCurrentThread();
 
 		while (!WindowClosed){
 			window->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
 
-			//game code here
+			Game.Update();
+			Game.Render();
 		}
 	}
 
