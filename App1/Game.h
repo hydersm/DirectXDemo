@@ -16,6 +16,7 @@ private:
 	ComPtr<ID3D11VertexShader> vertexshader;
 	ComPtr<ID3D11PixelShader> pixelshader;
 	ComPtr<ID3D11InputLayout> inputlayout;
+	ComPtr<ID3D11Buffer> constantBuffer;
 
 public:
 	void Initialize();

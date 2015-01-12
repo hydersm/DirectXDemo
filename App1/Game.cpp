@@ -2,9 +2,15 @@
 #include "Game.h"
 #include <fstream>
 
+struct OFFSET
+{
+	float X, Y, Z;
+};
+
 struct VERTEX
 {
 	float X, Y, Z;
+	float R, G, B;
 };
 
 //this function initializes direct3d for use
@@ -95,8 +101,13 @@ void CGame::Render()
 	//set the render target
 	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr);
 
+	//update constant buffer
+	OFFSET constantBufferOffset = { 0.5, 0.2, 1 };
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &constantBufferOffset, 0, 0);
+
+
 	//clear backbuffer to red
-	float colour[4] = { 1, 0, 0, 1 };
+	float colour[4] = { 0.5, 0.5, 0.5, 0.5 };
 	devcon->ClearRenderTargetView(renderTarget.Get(), colour);
 
 	// set the vertex buffer
@@ -104,7 +115,7 @@ void CGame::Render()
 	UINT offset = 0;
 	devcon->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
 
-	//set what primitive to use and DRAW!!!
+	//set what primitive to use
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//draw 3 vertices starting from vertex 0
 	devcon->Draw(3, 0);
@@ -113,14 +124,15 @@ void CGame::Render()
 	swapchain->Present(1, 0);
 }
 
+//creating the buffer object
 void CGame::InitGraphics()
-{
+{	
 	//triangle vertices
 	VERTEX vertices[] = 
 	{
-		{0.0f, 0.5f, 0.0f},
-		{0.45f, -0.5f, 0.0f},
-		{-0.45f, -0.5f, 0.0f},
+		{0.0f, 0.5f, 0.0f,			1.0f,0.0f,0.0f},
+		{0.45f, -0.5f, 0.0f,		0.0f, 1.0f, 0.0f},
+		{-0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f},
 	};
 
 	//bd is a struc describing all the properties of the buffer
@@ -131,6 +143,15 @@ void CGame::InitGraphics()
 	D3D11_SUBRESOURCE_DATA srd = { vertices, 0, 0 };
 
 	dev->CreateBuffer(&bd, &srd, &vertexBuffer);
+
+	//create constant buffer
+	D3D11_BUFFER_DESC cbd = { 0 };
+	cbd.Usage = D3D11_USAGE_DEFAULT;
+	cbd.ByteWidth = 16; //constant buffer size has to be a multiple of 16
+	cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+
+	dev->CreateBuffer(&cbd, nullptr, &constantBuffer);
+	devcon->VSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
 }
 
 // this function loads a file into an Array^
@@ -157,6 +178,7 @@ Array<byte>^ LoadShaderFile(std::string File)
 	return FileData;
 }
 
+//create and set the vertex shader, pixel shader and input layout
 void CGame::InitPipeline()
 {
 	Array<byte> ^VSFile = LoadShaderFile("VertexShader.cso");
@@ -175,10 +197,11 @@ void CGame::InitPipeline()
 	D3D11_INPUT_ELEMENT_DESC ied[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA , 0},
 	};
 
 	//create the input layout
 	dev->CreateInputLayout(ied, ARRAYSIZE(ied), VSFile->Data, VSFile->Length, &inputlayout);
 	devcon->IASetInputLayout(inputlayout.Get());
-
+	
 }
