@@ -18,6 +18,16 @@ private:
 	ComPtr<ID3D11InputLayout> inputlayout;
 	ComPtr<ID3D11Buffer> constantBuffer;
 
+	struct VERTEX
+	{
+		float X, Y, Z;
+		float R, G, B;
+	};
+
+	float time;
+	const float SCREEN_WIDTH = 2048;
+	const float SCREEN_HEIGHT = 1152;
+
 public:
 	void Initialize();
 	void Update();

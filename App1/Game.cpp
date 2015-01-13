@@ -2,17 +2,7 @@
 #include "Game.h"
 #include <fstream>
 
-struct OFFSET
-{
-	float X, Y, Z;
-};
-
-struct VERTEX
-{
-	float X, Y, Z;
-	float R, G, B;
-};
-
+using namespace std;
 //this function initializes direct3d for use
 void CGame::Initialize()
 {
@@ -58,7 +48,7 @@ void CGame::Initialize()
 	scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;    // the recommended flip mode
 	scd.SampleDesc.Count = 1;                             // disable anti-aliasing
 
-	CoreWindow^ Window = CoreWindow::GetForCurrentThread();    // get the window pointer
+	CoreWindow^ Window = CoreWindow::GetForCurrentThread();    // get a pointer to the window
 
 	//use dxgifactory to create the swapchain
 	dxgiFactory->CreateSwapChainForCoreWindow(
@@ -75,24 +65,29 @@ void CGame::Initialize()
 	//create the render target
 	dev->CreateRenderTargetView(backbuffer.Get(), nullptr, &renderTarget);
 
-	// set the viewport ****ask jeff
+	// set the viewport
 	D3D11_VIEWPORT viewport = { 0 };
 
+	//*****bug is here *******//
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
-	viewport.Width = Window->Bounds.Width;
-	viewport.Height = Window->Bounds.Height;
+	viewport.Width = SCREEN_WIDTH;
+	viewport.Height = SCREEN_HEIGHT;
+	//viewport.Width = Window->Bounds.Width;
+	//viewport.Height = Window->Bounds.Height;
 
 	devcon->RSSetViewports(1, &viewport);
 
 	InitGraphics();
 	InitPipeline();
+
+	time = 0;
 }
 
 //this function updates the state of the game
 void CGame::Update()
 {
-
+	time += 0.05f;
 }
 
 //this function renders a single frame of 3d graphics
@@ -100,10 +95,24 @@ void CGame::Render()
 {
 	//set the render target
 	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr);
+	
+	XMMATRIX matWorld = XMMatrixRotationY(time); //calculate the world transform
+	
+	//calculate view transformation
+	XMVECTOR vecCamPosition = XMVectorSet(1.5, 0.5, 1.5, 0); 
+	XMVECTOR vecCamLook = XMVectorSet(0, 0, 0, 0);	
+	XMVECTOR vecCamUp = XMVectorSet(0, 1, 0, 0);
+	XMMATRIX matView = XMMatrixLookAtLH(vecCamPosition, vecCamLook, vecCamUp); //view matrix
+	
+	//calculate the projection transformation
+	//CoreWindow ^window = CoreWindow::GetForCurrentThread(); //get pointer to window to calculate the aspect ratio
+	XMMATRIX matProjection = XMMatrixPerspectiveFovLH(XMConvertToRadians(45), SCREEN_WIDTH/SCREEN_HEIGHT, 1, 100);
 
-	//update constant buffer
-	OFFSET constantBufferOffset = { 0.5, 0.2, 1 };
-	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &constantBufferOffset, 0, 0);
+	//final transformation matrix
+	//note: order is this way because the matix multiplication is row major
+	XMMATRIX matFinal = matWorld * matView * matProjection;
+
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal, 0, 0);
 
 
 	//clear backbuffer to red
@@ -118,7 +127,7 @@ void CGame::Render()
 	//set what primitive to use
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//draw 3 vertices starting from vertex 0
-	devcon->Draw(3, 0);
+	devcon->Draw(6, 0);
 
 	//swap the buffers
 	swapchain->Present(1, 0);
@@ -133,6 +142,15 @@ void CGame::InitGraphics()
 		{0.0f, 0.5f, 0.0f,			1.0f,0.0f,0.0f},
 		{0.45f, -0.5f, 0.0f,		0.0f, 1.0f, 0.0f},
 		{-0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f},
+
+		{ 0.0f, 0.5f, 0.0f,			0.0f, 0.0f, 0.0f },
+		{ -0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 0.0f },
+		{ 0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 0.0f },
+
+		//{ 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f }, //red
+		//{ -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, //green
+		//{ 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, //blue
+		//{ -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f },
 	};
 
 	//bd is a struc describing all the properties of the buffer
@@ -147,7 +165,7 @@ void CGame::InitGraphics()
 	//create constant buffer
 	D3D11_BUFFER_DESC cbd = { 0 };
 	cbd.Usage = D3D11_USAGE_DEFAULT;
-	cbd.ByteWidth = 16; //constant buffer size has to be a multiple of 16
+	cbd.ByteWidth = 64; //constant buffer size has to be a multiple of 16
 	cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
 	dev->CreateBuffer(&cbd, nullptr, &constantBuffer);

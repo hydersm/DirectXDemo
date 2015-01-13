@@ -1,6 +1,6 @@
 cbuffer ConstantBuffer
 {
-	float3 Offset;
+	row_major float4x4 matFinal;
 };
 
 struct Vout
@@ -13,10 +13,8 @@ Vout main( float4 pos : POSITION, float4 color: COLOR )
 {
 	Vout output;
 
-	output.position = pos;
-	output.position.x += Offset.x;
-	output.position.y += Offset.y;
-	output.position.xy *= Offset.z;
+	output.position = mul(pos, matFinal); 
+	//output.position = pos;
 	output.color = color;
 
 	return output;
