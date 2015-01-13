@@ -68,13 +68,12 @@ void CGame::Initialize()
 	// set the viewport
 	D3D11_VIEWPORT viewport = { 0 };
 
-	//*****bug is here *******//
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
 	viewport.Width = SCREEN_WIDTH;
 	viewport.Height = SCREEN_HEIGHT;
-	//viewport.Width = Window->Bounds.Width;
-	//viewport.Height = Window->Bounds.Height;
+	viewport.MinDepth = 0;
+	viewport.MaxDepth = 1;
 
 	devcon->RSSetViewports(1, &viewport);
 
@@ -94,9 +93,12 @@ void CGame::Update()
 void CGame::Render()
 {
 	//set the render target
-	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), nullptr);
+	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), zbuffer.Get());
 	
-	XMMATRIX matWorld = XMMatrixRotationY(time); //calculate the world transform
+	XMMATRIX matWorld[] = {
+		XMMatrixRotationY(time) * XMMatrixTranslation(0, 0, -0.25),
+		XMMatrixRotationY(time) * XMMatrixTranslation(0, 0, 0.25),
+	}; //calculate the world transform for two triangles
 	
 	//calculate view transformation
 	XMVECTOR vecCamPosition = XMVectorSet(1.5, 0.5, 1.5, 0); 
@@ -108,16 +110,19 @@ void CGame::Render()
 	//CoreWindow ^window = CoreWindow::GetForCurrentThread(); //get pointer to window to calculate the aspect ratio
 	XMMATRIX matProjection = XMMatrixPerspectiveFovLH(XMConvertToRadians(45), SCREEN_WIDTH/SCREEN_HEIGHT, 1, 100);
 
-	//final transformation matrix
+	//final transformation matrix for two triangles
 	//note: order is this way because the matix multiplication is row major
-	XMMATRIX matFinal = matWorld * matView * matProjection;
+	XMMATRIX matFinal[] = {
+		matWorld[0] * matView * matProjection,
+		matWorld[1] * matView * matProjection,
+	};
 
-	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal, 0, 0);
-
-
-	//clear backbuffer to red
+	//clear backbuffer to grey
 	float colour[4] = { 0.5, 0.5, 0.5, 0.5 };
 	devcon->ClearRenderTargetView(renderTarget.Get(), colour);
+
+	//clear the depth (or z) buffer
+	devcon->ClearDepthStencilView(zbuffer.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
 	// set the vertex buffer
 	UINT stride = sizeof(VERTEX);
@@ -126,7 +131,10 @@ void CGame::Render()
 
 	//set what primitive to use
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//draw 3 vertices starting from vertex 0
+	//draw the two triangles
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal[0], 0, 0);
+	devcon->Draw(6, 0);
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal[1], 0, 0);
 	devcon->Draw(6, 0);
 
 	//swap the buffers
@@ -139,6 +147,8 @@ void CGame::InitGraphics()
 	//triangle vertices
 	VERTEX vertices[] = 
 	{
+		//vertices					colours
+		//first triangle
 		{0.0f, 0.5f, 0.0f,			1.0f,0.0f,0.0f},
 		{0.45f, -0.5f, 0.0f,		0.0f, 1.0f, 0.0f},
 		{-0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f},
@@ -170,7 +180,28 @@ void CGame::InitGraphics()
 
 	dev->CreateBuffer(&cbd, nullptr, &constantBuffer);
 	devcon->VSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
+
+	//create the z-buffer texture
+	D3D11_TEXTURE2D_DESC zbd = { 0 };
+	zbd.Width = SCREEN_WIDTH;
+	zbd.Height = SCREEN_HEIGHT;
+	zbd.ArraySize = 1;
+	zbd.MipLevels = 1;
+	zbd.SampleDesc.Count = 1;
+	zbd.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	zbd.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+	dev->CreateTexture2D(&zbd, nullptr, &zbuffertexture);
+
+	//create the z-buffer
+	D3D11_DEPTH_STENCIL_VIEW_DESC bufferDesc;
+	ZeroMemory(&bufferDesc, sizeof(bufferDesc));
+	bufferDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+
+	dev->CreateDepthStencilView(zbuffertexture.Get(), &bufferDesc, &zbuffer);
+
 }
+
 
 // this function loads a file into an Array^
 Array<byte>^ LoadShaderFile(std::string File)

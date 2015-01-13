@@ -17,6 +17,8 @@ private:
 	ComPtr<ID3D11PixelShader> pixelshader;
 	ComPtr<ID3D11InputLayout> inputlayout;
 	ComPtr<ID3D11Buffer> constantBuffer;
+	ComPtr<ID3D11Texture2D> zbuffertexture;
+	ComPtr<ID3D11DepthStencilView> zbuffer;
 
 	struct VERTEX
 	{
