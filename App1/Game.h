@@ -24,7 +24,17 @@ private:
 	struct VERTEX
 	{
 		float X, Y, Z;
-		float R, G, B;
+		//float R, G, B;
+		float NX, NY, NZ;
+	};
+
+	struct CBUFFER
+	{
+		XMMATRIX Final;
+		XMMATRIX Rotation;
+		XMVECTOR DiffuseVector;
+		XMVECTOR DiffuseColor;
+		XMVECTOR AmbientColor;
 	};
 
 	float time;

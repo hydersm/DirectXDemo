@@ -95,10 +95,10 @@ void CGame::Render()
 	//set the render target
 	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), zbuffer.Get());
 	
-	XMMATRIX matWorld = XMMatrixRotationY(time);
+	XMMATRIX matRotate = XMMatrixRotationY(time/4);
 	
 	//calculate view transformation
-	XMVECTOR vecCamPosition = XMVectorSet(1.5, 0.5, 1.5, 0); 
+	XMVECTOR vecCamPosition = XMVectorSet(0, 3, 8, 0); 
 	XMVECTOR vecCamLook = XMVectorSet(0, 0, 0, 0);	
 	XMVECTOR vecCamUp = XMVectorSet(0, 1, 0, 0);
 	XMMATRIX matView = XMMatrixLookAtLH(vecCamPosition, vecCamLook, vecCamUp); //view matrix
@@ -107,13 +107,18 @@ void CGame::Render()
 	//CoreWindow ^window = CoreWindow::GetForCurrentThread(); //get pointer to window to calculate the aspect ratio
 	XMMATRIX matProjection = XMMatrixPerspectiveFovLH(XMConvertToRadians(45), SCREEN_WIDTH/SCREEN_HEIGHT, 1, 100);
 
-	//final transformation matrix for two triangles
-	//note: order is this way because the matix multiplication is row major
-	XMMATRIX matFinal = matWorld * matView * matProjection;
-	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal, 0, 0);
+	//update the constant buffer
+	CBUFFER cbuffer;
+	cbuffer.Final = matRotate * matView * matProjection;
+	cbuffer.Rotation = matRotate;
+	cbuffer.DiffuseVector = XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
+	cbuffer.DiffuseColor = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
+	cbuffer.AmbientColor = XMVectorSet(0.2f, 0.2f, 0.2f, 1.0f);
+
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &cbuffer, 0, 0);
 
 	//clear backbuffer to grey
-	float colour[4] = { 0.5, 0.5, 0.5, 0.5 };
+	float colour[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
 	devcon->ClearRenderTargetView(renderTarget.Get(), colour);
 
 	//clear the depth (or z) buffer
@@ -129,7 +134,7 @@ void CGame::Render()
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//draw the two triangles
-	devcon->DrawIndexed(24, 0, 0);
+	devcon->DrawIndexed(36, 0, 0);
 	//devcon->Draw(3, 0);
 
 	//swap the buffers
@@ -140,24 +145,37 @@ void CGame::Render()
 void CGame::InitGraphics()
 {	
 	//list of the vertices we will be using
-	VERTEX vertices[] = 
+	VERTEX vertices[] =
 	{
-		//coordinates									colours
-		// fuselage
-		{ 3.0f / 11.0f, 0.0f / 11.0f, 0.0f / 11.0f,		0.0f, 1.0f, 0.0f },
-		{ 0.0f / 11.0f, 3.0f / 11.0f, -3.0f / 11.0f,	0.0f, 0.0f, 1.0f },
-		{ 0.0f / 11.0f, 0.0f / 11.0f, 10.0f / 11.0f,	1.0f, 0.0f, 0.0f },
-		{ -3.0f / 11.0f, 0.0f / 11.0f, 0.0f / 11.0f,	0.0f, 1.0f, 1.0f },
+		{ -1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f },    // side 1
+		{ 1.0f, -1.0f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{ 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f },
 
-		// left gun
-		{ 3.2f / 11.0f, -1.0f / 11.0f, -3.0f / 11.0f,	0.0f, 0.0f, 1.0f },
-		{ 3.2f / 11.0f, -1.0f / 11.0f, 11.0f / 11.0f,	0.0f, 1.0f, 0.0f },
-		{ 2.0f / 11.0f, 1.0f / 11.0f, 2.0f / 11.0f,		0.0f, 1.0f, 1.0f },
+		{ -1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f },    // side 2
+		{ -1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f },
+		{ 1.0f, -1.0f, -1.0f, 0.0f, 0.0f, -1.0f },
+		{ 1.0f, 1.0f, -1.0f, 0.0f, 0.0f, -1.0f },
 
-		// right gun
-		{ -3.2f / 11.0f, -1.0f / 11.0f, -3.0f / 11.0f,	0.0f, 0.0f, 1.0f },
-		{ -3.2f / 11.0f, -1.0f / 11.0f, 11.0f / 11.0f,	0.0f, 1.0f, 0.0f },
-		{ -2.0f / 11.0f, 1.0f / 11.0f, 2.0f / 11.0f,	0.0f, 1.0f, 1.0f },
+		{ -1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f },    // side 3
+		{ -1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f },
+		{ 1.0f, 1.0f, -1.0f, 0.0f, 1.0f, 0.0f },
+		{ 1.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f },
+
+		{ -1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f },    // side 4
+		{ 1.0f, -1.0f, -1.0f, 0.0f, -1.0f, 0.0f },
+		{ -1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f },
+		{ 1.0f, -1.0f, 1.0f, 0.0f, -1.0f, 0.0f },
+
+		{ 1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 0.0f },    // side 5
+		{ 1.0f, 1.0f, -1.0f, 1.0f, 0.0f, 0.0f },
+		{ 1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f },
+		{ 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f },
+
+		{ -1.0f, -1.0f, -1.0f, -1.0f, 0.0f, 0.0f },    // side 6
+		{ -1.0f, -1.0f, 1.0f, -1.0f, 0.0f, 0.0f },
+		{ -1.0f, 1.0f, -1.0f, -1.0f, 0.0f, 0.0f },
+		{ -1.0f, 1.0f, 1.0f, -1.0f, 0.0f, 0.0f },
 	};
 
 	//bd is a struc describing all the properties of the buffer
@@ -170,17 +188,21 @@ void CGame::InitGraphics()
 	dev->CreateBuffer(&bd, &srd, &vertexBuffer);
 
 	//create the index buffer
-		short indices[] =
-		{
-			0, 1, 2,    // fuselage
-			2, 1, 3,
-			3, 1, 0,
-			0, 2, 3,
-			4, 5, 6,    // wings
-			7, 8, 9,
-			4, 6, 5,    // wings (back face)
-			7, 9, 8,
-		};
+	short indices[] =
+	{
+		0, 1, 2,    // side 1
+		2, 1, 3,
+		4, 5, 6,    // side 2
+		6, 5, 7,
+		8, 9, 10,    // side 3
+		10, 9, 11,
+		12, 13, 14,    // side 4
+		14, 13, 15,
+		16, 17, 18,    // side 5
+		18, 17, 19,
+		20, 21, 22,    // side 6
+		22, 21, 23,
+	};
 
 	D3D11_BUFFER_DESC indexBufferDesc = { 0 };
 	indexBufferDesc.ByteWidth = sizeof(short)*ARRAYSIZE(indices);
@@ -192,7 +214,7 @@ void CGame::InitGraphics()
 	//create constant buffer
 	D3D11_BUFFER_DESC cbd = { 0 };
 	cbd.Usage = D3D11_USAGE_DEFAULT;
-	cbd.ByteWidth = 64; //constant buffer size has to be a multiple of 16
+	cbd.ByteWidth = sizeof(CBUFFER); //constant buffer size has to be a multiple of 16
 	cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
 	dev->CreateBuffer(&cbd, nullptr, &constantBuffer);
@@ -262,7 +284,8 @@ void CGame::InitPipeline()
 	D3D11_INPUT_ELEMENT_DESC ied[] =
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA , 0},
+		//{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA , 0},
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 
 	//create the input layout
