@@ -19,6 +19,7 @@ private:
 	ComPtr<ID3D11Buffer> constantBuffer;
 	ComPtr<ID3D11Texture2D> zbuffertexture;
 	ComPtr<ID3D11DepthStencilView> zbuffer;
+	ComPtr<ID3D11Buffer> indexBuffer;
 
 	struct VERTEX
 	{

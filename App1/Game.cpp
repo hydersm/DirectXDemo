@@ -95,10 +95,7 @@ void CGame::Render()
 	//set the render target
 	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), zbuffer.Get());
 	
-	XMMATRIX matWorld[] = {
-		XMMatrixRotationY(time) * XMMatrixTranslation(0, 0, -0.25),
-		XMMatrixRotationY(time) * XMMatrixTranslation(0, 0, 0.25),
-	}; //calculate the world transform for two triangles
+	XMMATRIX matWorld = XMMatrixRotationY(time);
 	
 	//calculate view transformation
 	XMVECTOR vecCamPosition = XMVectorSet(1.5, 0.5, 1.5, 0); 
@@ -112,10 +109,8 @@ void CGame::Render()
 
 	//final transformation matrix for two triangles
 	//note: order is this way because the matix multiplication is row major
-	XMMATRIX matFinal[] = {
-		matWorld[0] * matView * matProjection,
-		matWorld[1] * matView * matProjection,
-	};
+	XMMATRIX matFinal = matWorld * matView * matProjection;
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal, 0, 0);
 
 	//clear backbuffer to grey
 	float colour[4] = { 0.5, 0.5, 0.5, 0.5 };
@@ -124,18 +119,18 @@ void CGame::Render()
 	//clear the depth (or z) buffer
 	devcon->ClearDepthStencilView(zbuffer.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
 
-	// set the vertex buffer
+	// set the vertex and index buffer
 	UINT stride = sizeof(VERTEX);
 	UINT offset = 0;
 	devcon->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
+	devcon->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
 
 	//set what primitive to use
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
 	//draw the two triangles
-	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal[0], 0, 0);
-	devcon->Draw(6, 0);
-	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &matFinal[1], 0, 0);
-	devcon->Draw(6, 0);
+	devcon->DrawIndexed(24, 0, 0);
+	//devcon->Draw(3, 0);
 
 	//swap the buffers
 	swapchain->Present(1, 0);
@@ -144,23 +139,25 @@ void CGame::Render()
 //creating the buffer object
 void CGame::InitGraphics()
 {	
-	//triangle vertices
+	//list of the vertices we will be using
 	VERTEX vertices[] = 
 	{
-		//vertices					colours
-		//first triangle
-		{0.0f, 0.5f, 0.0f,			1.0f,0.0f,0.0f},
-		{0.45f, -0.5f, 0.0f,		0.0f, 1.0f, 0.0f},
-		{-0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f},
+		//coordinates									colours
+		// fuselage
+		{ 3.0f / 11.0f, 0.0f / 11.0f, 0.0f / 11.0f,		0.0f, 1.0f, 0.0f },
+		{ 0.0f / 11.0f, 3.0f / 11.0f, -3.0f / 11.0f,	0.0f, 0.0f, 1.0f },
+		{ 0.0f / 11.0f, 0.0f / 11.0f, 10.0f / 11.0f,	1.0f, 0.0f, 0.0f },
+		{ -3.0f / 11.0f, 0.0f / 11.0f, 0.0f / 11.0f,	0.0f, 1.0f, 1.0f },
 
-		{ 0.0f, 0.5f, 0.0f,			0.0f, 0.0f, 0.0f },
-		{ -0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 0.0f },
-		{ 0.45f, -0.5f, 0.0f,		0.0f, 0.0f, 0.0f },
+		// left gun
+		{ 3.2f / 11.0f, -1.0f / 11.0f, -3.0f / 11.0f,	0.0f, 0.0f, 1.0f },
+		{ 3.2f / 11.0f, -1.0f / 11.0f, 11.0f / 11.0f,	0.0f, 1.0f, 0.0f },
+		{ 2.0f / 11.0f, 1.0f / 11.0f, 2.0f / 11.0f,		0.0f, 1.0f, 1.0f },
 
-		//{ 1.0f, -1.0f, 0.0f, 1.0f, 0.0f, 0.0f }, //red
-		//{ -1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f }, //green
-		//{ 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f }, //blue
-		//{ -1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f },
+		// right gun
+		{ -3.2f / 11.0f, -1.0f / 11.0f, -3.0f / 11.0f,	0.0f, 0.0f, 1.0f },
+		{ -3.2f / 11.0f, -1.0f / 11.0f, 11.0f / 11.0f,	0.0f, 1.0f, 0.0f },
+		{ -2.0f / 11.0f, 1.0f / 11.0f, 2.0f / 11.0f,	0.0f, 1.0f, 1.0f },
 	};
 
 	//bd is a struc describing all the properties of the buffer
@@ -172,6 +169,26 @@ void CGame::InitGraphics()
 
 	dev->CreateBuffer(&bd, &srd, &vertexBuffer);
 
+	//create the index buffer
+		short indices[] =
+		{
+			0, 1, 2,    // fuselage
+			2, 1, 3,
+			3, 1, 0,
+			0, 2, 3,
+			4, 5, 6,    // wings
+			7, 8, 9,
+			4, 6, 5,    // wings (back face)
+			7, 9, 8,
+		};
+
+	D3D11_BUFFER_DESC indexBufferDesc = { 0 };
+	indexBufferDesc.ByteWidth = sizeof(short)*ARRAYSIZE(indices);
+	indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+
+	D3D11_SUBRESOURCE_DATA indexSubresourceData = { indices, 0, 0 };
+	dev->CreateBuffer(&indexBufferDesc, &indexSubresourceData, &indexBuffer);
+
 	//create constant buffer
 	D3D11_BUFFER_DESC cbd = { 0 };
 	cbd.Usage = D3D11_USAGE_DEFAULT;
@@ -181,7 +198,7 @@ void CGame::InitGraphics()
 	dev->CreateBuffer(&cbd, nullptr, &constantBuffer);
 	devcon->VSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
 
-	//create the z-buffer texture
+	//create the z-buffer
 	D3D11_TEXTURE2D_DESC zbd = { 0 };
 	zbd.Width = SCREEN_WIDTH;
 	zbd.Height = SCREEN_HEIGHT;
@@ -193,7 +210,6 @@ void CGame::InitGraphics()
 
 	dev->CreateTexture2D(&zbd, nullptr, &zbuffertexture);
 
-	//create the z-buffer
 	D3D11_DEPTH_STENCIL_VIEW_DESC bufferDesc;
 	ZeroMemory(&bufferDesc, sizeof(bufferDesc));
 	bufferDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
