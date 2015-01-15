@@ -22,6 +22,9 @@ private:
 	ComPtr<ID3D11Buffer> indexBuffer;
 	ComPtr<ID3D11RasterizerState> defaultRasterizerState;
 	ComPtr<ID3D11RasterizerState> wireFrameRastertizerState;
+	ComPtr<ID3D11BlendState> blendState;
+	ComPtr<ID3D11DepthStencilState> depthOnState;
+	ComPtr<ID3D11DepthStencilState> depthOffState;
 
 
 	struct VERTEX

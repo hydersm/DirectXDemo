@@ -93,8 +93,24 @@ void CGame::Update()
 //this function renders a single frame of 3d graphics
 void CGame::Render()
 {
+	//clear backbuffer to grey
+	float colour[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+	devcon->ClearRenderTargetView(renderTarget.Get(), colour);
+
+	//clear the depth (or z) buffer
+	devcon->ClearDepthStencilView(zbuffer.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	//set the render target
+	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), zbuffer.Get());
+
+	// set the vertex and index buffer
+	UINT stride = sizeof(VERTEX);
+	UINT offset = 0;
+	devcon->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
+	devcon->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
+
 	//set to true if you want to see wireframe
-	bool wireFrame = true;
+	bool wireFrame = false;
 
 	if (wireFrame){
 		devcon->RSSetState(wireFrameRastertizerState.Get());
@@ -103,11 +119,24 @@ void CGame::Render()
 		devcon->RSSetState(defaultRasterizerState.Get());
 	}
 
-	//set the render target
-	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), zbuffer.Get());
+	//set the blend state
+	devcon->OMSetBlendState(blendState.Get(), 0, 0xffffffff);
+
+	//set the depth state - set to true if you want to use the depth buffer
+	bool useDepth = true;
+
+	if (useDepth){
+		devcon->OMSetDepthStencilState(depthOnState.Get(), 0);
+	}
+	else {
+		devcon->OMSetDepthStencilState(depthOffState.Get(), 0);
+	}
 	
-	XMMATRIX matRotate = XMMatrixRotationY(time/4);
-	
+	//world transformations
+	XMMATRIX matRotate = XMMatrixRotationY(time / 4);
+	XMMATRIX matTranslate = XMMatrixTranslation(1.5f, 1.0f, 1.5f);
+	XMMATRIX matResize = XMMatrixScaling(0.5, 0.5, 0.5);
+
 	//calculate view transformation
 	XMVECTOR vecCamPosition = XMVectorSet(0, 3, 8, 0); 
 	XMVECTOR vecCamLook = XMVectorSet(0, 0, 0, 0);	
@@ -128,25 +157,17 @@ void CGame::Render()
 
 	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &cbuffer, 0, 0);
 
-	//clear backbuffer to grey
-	float colour[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	devcon->ClearRenderTargetView(renderTarget.Get(), colour);
-
-	//clear the depth (or z) buffer
-	devcon->ClearDepthStencilView(zbuffer.Get(), D3D11_CLEAR_DEPTH, 1.0f, 0);
-
-	// set the vertex and index buffer
-	UINT stride = sizeof(VERTEX);
-	UINT offset = 0;
-	devcon->IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
-	devcon->IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
-
 	//set what primitive to use
 	devcon->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-	//draw the two triangles
+	//draw the first cube
 	devcon->DrawIndexed(36, 0, 0);
-	//devcon->Draw(3, 0);
+	
+	cbuffer.Final = matResize * matTranslate * matRotate * matView * matProjection;
+	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &cbuffer, 0, 0);
+
+	//draw the second cube
+	devcon->DrawIndexed(36, 0, 0);
 
 	//swap the buffers
 	swapchain->Present(1, 0);
@@ -307,6 +328,7 @@ void CGame::InitPipeline()
 
 void CGame::InitStates()
 {
+	//initializing the rasterizer state
 	D3D11_RASTERIZER_DESC rd;
 	rd.FillMode = D3D11_FILL_SOLID;
 	rd.CullMode = D3D11_CULL_BACK;
@@ -324,4 +346,32 @@ void CGame::InitStates()
 	rd.FillMode = D3D11_FILL_WIREFRAME;
 
 	dev->CreateRasterizerState(&rd, &wireFrameRastertizerState);
+
+	//initializing the blend state
+	D3D11_BLEND_DESC blendDesc;
+	ZeroMemory(&blendDesc, sizeof(D3D11_BLEND_DESC));
+	blendDesc.RenderTarget[0].BlendEnable =	true;
+	blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	blendDesc.IndependentBlendEnable = FALSE;
+	blendDesc.AlphaToCoverageEnable = FALSE;
+
+	dev->CreateBlendState(&blendDesc, &blendState);
+
+	//initializing the depth state
+	D3D11_DEPTH_STENCIL_DESC depthStencilDesc = { 0 };
+	depthStencilDesc.DepthEnable = true;
+	depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+
+	dev->CreateDepthStencilState(&depthStencilDesc, depthOnState.GetAddressOf());
+
+	depthStencilDesc.DepthEnable = false;
+
+	dev->CreateDepthStencilState(&depthStencilDesc, depthOffState.GetAddressOf());
 }
