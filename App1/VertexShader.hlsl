@@ -21,7 +21,7 @@ Vout main( float4 pos : POSITION, float4 normal: NORMAL )
 	output.color = ambientcol;
 
 	float4 norm = normalize(mul(normal, matRotation));
-	float diffuseBrightness = saturate(dot(norm, lightvec));
+	float diffuseBrightness = saturate(dot(norm, -1*lightvec));
 	output.color += lightcol * diffuseBrightness;
 
 	return output;

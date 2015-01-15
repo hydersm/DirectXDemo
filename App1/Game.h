@@ -20,6 +20,9 @@ private:
 	ComPtr<ID3D11Texture2D> zbuffertexture;
 	ComPtr<ID3D11DepthStencilView> zbuffer;
 	ComPtr<ID3D11Buffer> indexBuffer;
+	ComPtr<ID3D11RasterizerState> defaultRasterizerState;
+	ComPtr<ID3D11RasterizerState> wireFrameRastertizerState;
+
 
 	struct VERTEX
 	{
@@ -40,6 +43,8 @@ private:
 	float time;
 	const float SCREEN_WIDTH = 2048;
 	const float SCREEN_HEIGHT = 1152;
+
+	void InitStates();
 
 public:
 	void Initialize();

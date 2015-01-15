@@ -79,6 +79,7 @@ void CGame::Initialize()
 
 	InitGraphics();
 	InitPipeline();
+	InitStates();
 
 	time = 0;
 }
@@ -92,6 +93,16 @@ void CGame::Update()
 //this function renders a single frame of 3d graphics
 void CGame::Render()
 {
+	//set to true if you want to see wireframe
+	bool wireFrame = true;
+
+	if (wireFrame){
+		devcon->RSSetState(wireFrameRastertizerState.Get());
+	}
+	else {
+		devcon->RSSetState(defaultRasterizerState.Get());
+	}
+
 	//set the render target
 	devcon->OMSetRenderTargets(1, renderTarget.GetAddressOf(), zbuffer.Get());
 	
@@ -111,8 +122,8 @@ void CGame::Render()
 	CBUFFER cbuffer;
 	cbuffer.Final = matRotate * matView * matProjection;
 	cbuffer.Rotation = matRotate;
-	cbuffer.DiffuseVector = XMVectorSet(1.0f, 1.0f, 1.0f, 0.0f);
-	cbuffer.DiffuseColor = XMVectorSet(1.0f, 1.0f, 1.0f, 1.0f);
+	cbuffer.DiffuseVector = XMVectorSet(-1.0f, -1.0f, -1.0f, 0.0f);
+	cbuffer.DiffuseColor = XMVectorSet(0.5f, 0.5f, 0.5f, 1.0f);
 	cbuffer.AmbientColor = XMVectorSet(0.2f, 0.2f, 0.2f, 1.0f);
 
 	devcon->UpdateSubresource(constantBuffer.Get(), 0, 0, &cbuffer, 0, 0);
@@ -292,4 +303,25 @@ void CGame::InitPipeline()
 	dev->CreateInputLayout(ied, ARRAYSIZE(ied), VSFile->Data, VSFile->Length, &inputlayout);
 	devcon->IASetInputLayout(inputlayout.Get());
 	
+}
+
+void CGame::InitStates()
+{
+	D3D11_RASTERIZER_DESC rd;
+	rd.FillMode = D3D11_FILL_SOLID;
+	rd.CullMode = D3D11_CULL_BACK;
+	rd.FrontCounterClockwise = FALSE;
+	rd.DepthClipEnable = TRUE;
+	rd.ScissorEnable = FALSE;
+	rd.AntialiasedLineEnable = TRUE;
+	rd.MultisampleEnable = FALSE;
+	rd.DepthBias = 0;
+	rd.DepthBiasClamp = 0.0f;
+	rd.SlopeScaledDepthBias = 0.0f;
+
+	dev->CreateRasterizerState(&rd, &defaultRasterizerState);
+
+	rd.FillMode = D3D11_FILL_WIREFRAME;
+
+	dev->CreateRasterizerState(&rd, &wireFrameRastertizerState);
 }
